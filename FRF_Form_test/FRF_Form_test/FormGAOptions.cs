@@ -1,10 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
 using System.Windows.Forms;
 using Mechatronics.Analysis;
 using Mechatronics.MathToolBox;
@@ -15,80 +10,190 @@ namespace FRF_Form_test
 {
     public partial class FormGAOptions : Form
     {
-        private FormMain.FittingOptimization FittingOPT;
-        private FRF[] VClose_ref;
-        private VelocityResponse VR;
+        //Comming from Main
+        private static FRF[] VClose_ref;
+        private static VelocityResponse VR;
+        //
+        List<Mode> ReachedVLoopModes;
 
-        public FormGAOptions(FRF[] vClose_ref, VelocityResponse vR, FormMain.FittingOptimization fittingOPT, List<FormMain.InitialFrequencyPoints> initialValues)
+        private GAOptimization GAOPT;
+        public FormMain FormMain;
+
+        public FormGAOptions(FRF[] vClose_ref, VelocityResponse vR, FormMain formMain) 
         {
-            InitializeComponent();
             VClose_ref = vClose_ref;
+            VR = new VelocityResponse();
             VR = vR;
-            FittingOPT = fittingOPT;
-            FormMain.DrawLine(VClose_ref, 0, chart_mag,chart_phs);
+            InitializeComponent();
+            ReachedVLoopModes = new List<Mode>();
+            FormMain.CreateModes(ReachedVLoopModes);
+            FormMain = formMain;
+        }
+
+        private void RunGAEnvent(object sender, EventArgs e)
+        {
+            GeneticAlgorithmOptimization();
+        } //Checked
+
+        public void GeneticAlgorithmOptimization()
+        {
+            List<Mode> NewVLoopModes = new List<Mode>();
+
+            NewVLoopModes = ReachedVLoopModes;
+
+            GeneticAlgorithm.Range Mass_range = new GeneticAlgorithm.Range { MinValue = FormMain.TryToDouble(textBoxMassMin.Text), MaxValue = FormMain.TryToDouble(textBoxMassMax.Text) };
+            GeneticAlgorithm.Range Zeta_range = new GeneticAlgorithm.Range { MinValue = FormMain.TryToDouble(textBoxZetaMin.Text), MaxValue = FormMain.TryToDouble(textBoxZetaMax.Text) };
+            GeneticAlgorithm.Range FrequencyRange = new GeneticAlgorithm.Range { MinValue = FormMain.TryToDouble(textBoxFreqMin.Text), MaxValue = FormMain.TryToDouble(textBoxFreqMax.Text) };
+
+            GAOPT = new GAOptimization(Mass_range, Zeta_range, FrequencyRange);
+
+            //GAOPT.SetOptimizationParameters(pop,pcross,pmutation,generations,sensibitily)
+            GAOPT.SetOptimizationParameters((int)FormMain.TryToDouble(textBoxPop.Text),
+                                              FormMain.TryToDouble(textBoxPCross.Text),
+                                              FormMain.TryToDouble(textBoxPMutation.Text),
+                                              (int)FormMain.TryToDouble(textBoxGen.Text),
+                                              FormMain.TryToDouble(textBoxSensibility.Text));
+
+            GAOPT.SetReference(VClose_ref, VR, NewVLoopModes, (int)FormMain.TryToDouble(textBoxNFREQ_Order.Text)-1);
+
+            Mode newMode = new Mode();
+            newMode = GAOPT.Solve();
+
+            textBoxOPFreq.Text = newMode.Freq.ToString();
+            textBoxOPMass.Text = newMode.Mass.ToString();
+            textBoxOPZeta.Text = newMode.Zeta.ToString();
+            textBoxOPError.Text = (GAOPT.Sensibility/GAOPT.GA.OPTResult.target[0]).ToString();
 
             PlottingGAData();
 
-            textBoxFreq_1.Text = initialValues[0].ResonantFreqPeak.ToString();
-            textBoxMag_1.Text = initialValues[0].ResonantMagPeak.ToString();
-            textBoxFreqMax_1.Text = initialValues[0].FrequencyRage.MaxValue.ToString();
-            textBoxFreqMin_1.Text = initialValues[0].FrequencyRage.MinValue.ToString();
+            NewVLoopModes[(int)FormMain.TryToDouble(textBoxNFREQ_Order.Text)-1] = newMode;
 
-            textBoxFreq_2.Text = initialValues[1].ResonantFreqPeak.ToString();
-            textBoxMag_2.Text = initialValues[1].ResonantMagPeak.ToString();
-            textBoxFreqMax_2.Text = initialValues[1].FrequencyRage.MaxValue.ToString();
-            textBoxFreqMin_2.Text = initialValues[1].FrequencyRage.MinValue.ToString();
+            VR.VLoopModes = NewVLoopModes;
 
-            textBoxFreq_3.Text = initialValues[2].ResonantFreqPeak.ToString();
-            textBoxMag_3.Text = initialValues[2].ResonantMagPeak.ToString();
-            textBoxFreqMax_3.Text = initialValues[2].FrequencyRage.MaxValue.ToString();
-            textBoxFreqMin_3.Text = initialValues[2].FrequencyRage.MinValue.ToString();
+            //Evaluation
+            GAOPT.ResultOPT = VR.SolveCloseLoopResponse();
 
-            textBoxPCross.Text = FittingOPT.GA[0].GA_Settings.PCrossover.ToString();
-            textBoxPMutation.Text = FittingOPT.GA[0].GA_Settings.PMutation.ToString();
-            textBoxPop.Text = FittingOPT.GA[0].GA_Settings.PopulationSize.ToString();
-            textBoxGen.Text = FittingOPT.GA[0].GA_Settings.Generations.ToString();
+            // draw simulated FRF chart in FormMain
+
+            FormMain.DrawResult(GAOPT.ResultOPT);
+
         }
 
-        private void PlottingGAData()
+        public class GAOptimization
         {
-            FormMain.DrawLine(VR.SolveCloseLoopResponse(), 1, chart_mag, chart_phs);
+            public GeneticAlgorithm GA;
 
-            if (radioButtonGA1.Checked)
+            public GeneticAlgorithm.Range FrequencyRange { get; set; }
+            public GeneticAlgorithm.Range Mass_range { get; set; }
+            public GeneticAlgorithm.Range Zeta_range { get; set; }
+
+            public double Sensibility { get; set; }
+            public int IndexMode { get; set; }
+            public FRF[] Target { get; set; }
+            public FRF[] ResultOPT { get; set; }
+
+            private List<GeneticAlgorithm.Range> Features;// internal Varaiable to GA
+
+            private List<Mode> InitialModes;
+
+            public GAOptimization(GeneticAlgorithm.Range mass_range, GeneticAlgorithm.Range zeta_range, GeneticAlgorithm.Range frequencyRange)
             {
-                DrawLine(FittingOPT.GA[0].GetMaxFitnessHistory(),0,chartFitness);
-                DrawLine(FittingOPT.GA[0].GetMeanFitnessHistory(), 1, chartFitness);
+                Mass_range = mass_range;
+                Zeta_range = zeta_range;
+                FrequencyRange = frequencyRange;
 
-                if (radioButtonMass.Checked) {DrawLine(FittingOPT.GA[0].GetFeatureHistory(0), 0, chartParameters); chartParameters.Series[1].Points.Clear(); chartParameters.Series[2].Points.Clear(); }
-                if (radioButtonZeta.Checked) { DrawLine(FittingOPT.GA[0].GetFeatureHistory(1), 1, chartParameters); chartParameters.Series[0].Points.Clear(); chartParameters.Series[2].Points.Clear(); }
-                if (radioButtonFreq.Checked) { DrawLine(FittingOPT.GA[0].GetFeatureHistory(2), 2, chartParameters); chartParameters.Series[1].Points.Clear(); chartParameters.Series[0].Points.Clear(); }
+            }
+
+            public void SetOptimizationParameters(int population, double pcross, double pmutation, int generations, double sensibility)
+            {
+
+                Sensibility = sensibility;
+                Features = new List<GeneticAlgorithm.Range>();
+                Features.Add(Mass_range);
+                Features.Add(Zeta_range);
+                Features.Add(FrequencyRange);
+
+                GA = new GeneticAlgorithm(population, Features, pcross, pmutation, generations);
+            }
+
+            public Mode Solve()
+            {
+
+                SetReference(VClose_ref, VR, InitialModes, IndexMode);
+                Mode result = new Mode();
+
+                GA.Solve(ObjFunction);
+                double[] BestParameters = GA.OPTResult.Parameters;
+                //Should be in this oreder 2 0 1
+                result.Freq = BestParameters[2];
+                result.Mass = BestParameters[0];
+                result.Zeta = BestParameters[1];
+                
+                return result;
+            }
+
+            private double ObjFunction(double[] parameters)
+            {
+
+                List<Mode> VLoopModes = new List<Mode>();
+
+                Mode mode = new Mode();
+                //It shoud be in this order
+                mode.Freq = parameters[2];
+                mode.Mass = parameters[0];
+                mode.Zeta = parameters[1];
                 
 
+                VLoopModes = InitialModes;
+                VLoopModes[IndexMode] = mode;
+
+                VR.VLoopModes = VLoopModes;
+                FRF[] Eval = VR.SolveCloseLoopResponse();
+
+                FRF[] Target = GettingRegionReference(VClose_ref);
+                FRF[] RegionEval = GettingRegionReference(Eval);
+
+
+                double LocalError = 0;
+                for (int i = 0; i < RegionEval.Length; i++)
+                {
+                    LocalError = Math.Abs(Target[i].Mag - RegionEval[i].Mag) + LocalError;
+                }
+
+                return Sensibility / LocalError;
             }
-            if (radioButtonGA2.Checked)
-            {
-                DrawLine(FittingOPT.GA[1].GetMaxFitnessHistory(), 0, chartFitness);
-                DrawLine(FittingOPT.GA[1].GetMeanFitnessHistory(), 1, chartFitness);
 
-                if (radioButtonMass.Checked) { DrawLine(FittingOPT.GA[1].GetFeatureHistory(0), 0, chartParameters); chartParameters.Series[1].Points.Clear(); chartParameters.Series[2].Points.Clear(); }
-                if (radioButtonZeta.Checked) { DrawLine(FittingOPT.GA[1].GetFeatureHistory(1), 1, chartParameters); chartParameters.Series[0].Points.Clear(); chartParameters.Series[2].Points.Clear(); }
-                if (radioButtonFreq.Checked) { DrawLine(FittingOPT.GA[1].GetFeatureHistory(2), 2, chartParameters); chartParameters.Series[1].Points.Clear(); chartParameters.Series[0].Points.Clear(); }
+            public void SetReference(FRF[] vClose_ref, VelocityResponse vR, List<Mode> initialModes, int indexMode)
+            {
+                VClose_ref = vClose_ref;
+                VR = vR;
+                IndexMode = indexMode;
+                Target = GettingRegionReference(vClose_ref);
+                InitialModes = initialModes;
 
             }
-            if (radioButtonGA3.Checked)
+
+            private FRF[] GettingRegionReference(FRF[] vRef)
             {
-                DrawLine(FittingOPT.GA[2].GetMaxFitnessHistory(), 0, chartFitness);
-                DrawLine(FittingOPT.GA[2].GetMeanFitnessHistory(), 1, chartFitness);
+                List<FRF> target = new List<FRF>();
 
-                if (radioButtonMass.Checked) { DrawLine(FittingOPT.GA[2].GetFeatureHistory(0), 0, chartParameters); chartParameters.Series[1].Points.Clear(); chartParameters.Series[2].Points.Clear(); }
-                if (radioButtonZeta.Checked) { DrawLine(FittingOPT.GA[2].GetFeatureHistory(1), 1, chartParameters); chartParameters.Series[0].Points.Clear(); chartParameters.Series[2].Points.Clear(); }
-                if (radioButtonFreq.Checked) { DrawLine(FittingOPT.GA[2].GetFeatureHistory(2), 2, chartParameters); chartParameters.Series[1].Points.Clear(); chartParameters.Series[0].Points.Clear(); }
-
+                for (int data = 0; data < vRef.Length; data++)
+                {
+                    if (vRef[data].Freq >= FrequencyRange.MinValue && vRef[data].Freq <= FrequencyRange.MaxValue)
+                    {
+                        FRF _target = new FRF();
+                        _target = vRef[data];
+                        target.Add(_target);
+                    }
+                }
+                return (FRF[])target.ToArray().Clone();
             }
 
 
         }
 
+
+        #region Fix Code
         private void chart_mag_GetToolTipText(object sender, System.Windows.Forms.DataVisualization.Charting.ToolTipEventArgs e)
         {
             if (e.HitTestResult.ChartElementType == ChartElementType.DataPoint)
@@ -99,82 +204,6 @@ namespace FRF_Form_test
             }
         }
 
-        private void buttonRunGA_Click(object sender, EventArgs e)
-        {
-            buttonRunGA.Enabled = false;
-            List<FormMain.InitialFrequencyPoints> InitialValues = GetInitialValues();
-            GeneticAlgorithmOptimization(InitialValues);
-            buttonRunGA.Enabled = true;
-            PlottingGAData();
-
-            textBoxFeatureResults.Text = "GA1 :" + FittingOPT.GA[0].OPTResult.Parameters[0].ToString("0.00") + " - " + FittingOPT.GA[0].OPTResult.Parameters[1].ToString("0.00") + " -  " + FittingOPT.GA[0].OPTResult.Parameters[2].ToString("0.00") +
-                                         "\t GA2 :" + FittingOPT.GA[1].OPTResult.Parameters[0].ToString("0.00") + " - " + FittingOPT.GA[1].OPTResult.Parameters[1].ToString("0.00") + " -  " + FittingOPT.GA[1].OPTResult.Parameters[2].ToString("0.00") +
-                                         "\t GA3 :" + FittingOPT.GA[2].OPTResult.Parameters[0].ToString("0.00") + " - " + FittingOPT.GA[2].OPTResult.Parameters[1].ToString("0.00") + " -  " + FittingOPT.GA[2].OPTResult.Parameters[2].ToString("0.00");
-
-        }
-            private void GeneticAlgorithmOptimization(List<FormMain.InitialFrequencyPoints> ResonantPeak)
-        {
-            List<Mode> VLoopModes = new List<Mode>();
-            FormMain.CreateModes(VLoopModes);
-
-            GeneticAlgorithm.Range Mass_range = new GeneticAlgorithm.Range { MinValue = FormMain.TryToDouble(textBoxMassMin.Text), MaxValue = FormMain.TryToDouble(textBoxMassMax.Text) };
-            GeneticAlgorithm.Range Zeta_range = new GeneticAlgorithm.Range { MinValue = FormMain.TryToDouble(textBoxZetaMin.Text), MaxValue = FormMain.TryToDouble(textBoxZetaMax.Text) };
-
-            List<GeneticAlgorithm.Range> FrequencyRange = new List<GeneticAlgorithm.Range>();
-            for (int i = 0; i < ResonantPeak.Count; i++)
-            {
-                FrequencyRange.Add(ResonantPeak[i].FrequencyRage);
-            }
-
-            FittingOPT = new FormMain.FittingOptimization(Mass_range, Zeta_range, FrequencyRange);
-
-            FittingOPT.SetOptimizationParameters((int)FormMain.TryToDouble(textBoxPop.Text), FormMain.TryToDouble(textBoxPCross.Text), FormMain.TryToDouble(textBoxPMutation.Text), (int)FormMain.TryToDouble(textBoxGen.Text), 500);
-
-            FittingOPT.SetReference(VClose_ref, VR, VLoopModes);
-
-            VLoopModes = new List<Mode>();
-            VLoopModes = FittingOPT.Solve();
-
-            //Create Structure Nature Modes Object
-
-            VR.VLoopModes = VLoopModes;
-
-            //Evaluation
-            FRF[] Close = VR.SolveCloseLoopResponse();
-            //FRF[] Open = VR.SolveOpenLoopResponse();
-
-            // draw simulated FRF in chart
-            FormMain.DrawLine(Close, 1,chart_mag, chart_phs);
-        }
-
-        private List<FormMain.InitialFrequencyPoints> GetInitialValues()
-        {
-            List<FormMain.InitialFrequencyPoints> _InitialValues = new List<FormMain.InitialFrequencyPoints>();
-
-            FormMain.InitialFrequencyPoints ResonantPeakPoint = new FormMain.InitialFrequencyPoints();
-            ResonantPeakPoint.ResonantMagPeak = FormMain.TryToDouble(textBoxMag_1.Text);
-            ResonantPeakPoint.ResonantFreqPeak = FormMain.TryToDouble(textBoxFreq_1.Text);
-            ResonantPeakPoint.FrequencyRage.MinValue = FormMain.TryToDouble(textBoxFreqMin_1.Text);
-            ResonantPeakPoint.FrequencyRage.MaxValue = FormMain.TryToDouble(textBoxFreqMax_1.Text);
-            _InitialValues.Add(ResonantPeakPoint);
-
-            ResonantPeakPoint = new FormMain.InitialFrequencyPoints();
-            ResonantPeakPoint.ResonantMagPeak = FormMain.TryToDouble(textBoxMag_2.Text);
-            ResonantPeakPoint.ResonantFreqPeak = FormMain.TryToDouble(textBoxFreq_2.Text);
-            ResonantPeakPoint.FrequencyRage.MinValue = FormMain.TryToDouble(textBoxFreqMin_2.Text);
-            ResonantPeakPoint.FrequencyRage.MaxValue = FormMain.TryToDouble(textBoxFreqMax_2.Text);
-            _InitialValues.Add(ResonantPeakPoint);
-
-            ResonantPeakPoint = new FormMain.InitialFrequencyPoints();
-            ResonantPeakPoint.ResonantMagPeak = FormMain.TryToDouble(textBoxMag_3.Text);
-            ResonantPeakPoint.ResonantFreqPeak = FormMain.TryToDouble(textBoxFreq_3.Text);
-            ResonantPeakPoint.FrequencyRage.MinValue = FormMain.TryToDouble(textBoxFreqMin_3.Text);
-            ResonantPeakPoint.FrequencyRage.MaxValue = FormMain.TryToDouble(textBoxFreqMax_3.Text);
-            _InitialValues.Add(ResonantPeakPoint);
-
-            return _InitialValues;
-        }
-
         void DrawLine(double[] Data, int Channel, Chart chart)
         {
 
@@ -183,20 +212,30 @@ namespace FRF_Form_test
 
             for (int i = 0; i < Data.Length; i++)
             {
-                chart.Series[Channel].Points.AddXY(i,Data[i]);
+                chart.Series[Channel].Points.AddXY(i, Data[i]);
             }
 
         }
-
 
         private void radioButton_CheckedChanged(object sender, EventArgs e)
         {
             PlottingGAData();
         }
 
-        private void buttonPlotGAData(object sender, EventArgs e)
+        private void PlottingGAData()
         {
-            PlottingGAData();
+            DrawLine(GAOPT.GA.GetMaxFitnessHistory(), 0, chartFitness);
+            DrawLine(GAOPT.GA.GetMeanFitnessHistory(), 1, chartFitness);
+
+            if (radioButtonMass.Checked) { DrawLine(GAOPT.GA.GetFeatureHistory(0), 0, chartParameters); chartParameters.Series[1].Points.Clear(); chartParameters.Series[2].Points.Clear(); }
+            if (radioButtonZeta.Checked) { DrawLine(GAOPT.GA.GetFeatureHistory(1), 1, chartParameters); chartParameters.Series[0].Points.Clear(); chartParameters.Series[2].Points.Clear(); }
+            if (radioButtonFreq.Checked) { DrawLine(GAOPT.GA.GetFeatureHistory(2), 2, chartParameters); chartParameters.Series[1].Points.Clear(); chartParameters.Series[0].Points.Clear(); }
+
         }
+
+        #endregion
+
+      
     }
 }
+
