@@ -329,8 +329,7 @@ namespace FRF_Form_test
 
         private void FittingCurveBtnEvent(object sender, EventArgs e)
         {
-            buttonCreateFiittingCurve.Enabled = false;
-            
+            buttonCreateFiittingCurve.Enabled = false;           
             List<InitialFrequencyPoints> InitialValues = GetInitialValues();
             GeneticAlgorithmOptimization(InitialValues);          
             buttonCreateFiittingCurve.Enabled = true;
@@ -342,10 +341,10 @@ namespace FRF_Form_test
             List<InitialFrequencyPoints> _InitialValues = new List<InitialFrequencyPoints>();
 
             InitialFrequencyPoints ResonantPeakPoint = new InitialFrequencyPoints();
-            ResonantPeakPoint.ResonantMagPeak = TryToDouble(textBoxMag_1.Text);
-            ResonantPeakPoint.ResonantFreqPeak = TryToDouble(textBoxFreq_1.Text);
-            ResonantPeakPoint.FrequencyRage.MinValue = TryToDouble(textBoxFreqMin_1.Text);
-            ResonantPeakPoint.FrequencyRage.MaxValue = TryToDouble(textBoxFreqMax_1.Text);
+            ResonantPeakPoint.ResonantMagPeak = TryToDouble(textBoxMag.Text);
+            ResonantPeakPoint.ResonantFreqPeak = TryToDouble(textBoxFreq.Text);
+            ResonantPeakPoint.FrequencyRage.MinValue = TryToDouble(textBoxFreqMin.Text);
+            ResonantPeakPoint.FrequencyRage.MaxValue = TryToDouble(textBoxFreqMax.Text);
             _InitialValues.Add(ResonantPeakPoint);
 
             ResonantPeakPoint = new InitialFrequencyPoints();
@@ -367,9 +366,19 @@ namespace FRF_Form_test
        
         private void GeneticAlgorithmOptionsBntEvent(object sender, EventArgs e)
         {
+            
+        }
+
+       
+        private void ChangedResonantPeakEvent(object sender, EventArgs e)
+        {
+
+        }
+
+        private void RunGeneticAlgorithm(object sender, EventArgs e)
+        {
             List<InitialFrequencyPoints> InitialValues = GetInitialValues();
             FormGAOptions form = new FormGAOptions(VClose_ref, VR, FittingOPT, InitialValues);
-
             form.Show();
         }
     }
