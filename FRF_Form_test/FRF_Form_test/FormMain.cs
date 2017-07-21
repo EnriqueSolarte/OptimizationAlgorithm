@@ -10,8 +10,8 @@ namespace FRF_Form_test
 {
     public partial class FormMain : Form
     {
-        FRF[] VClose_ref;
-        VelocityResponse VR;
+        public FRF[] VClose_ref;
+        public VelocityResponse VR;
        
 
         public FormMain()
@@ -31,8 +31,7 @@ namespace FRF_Form_test
             VR.IsFreqDataSameAsRef = true;
 
             DrawLine(VClose_ref, 0,chart_mag,chart_phs);
-
-        }
+        } // Create VR, set parameters, get VClose Ref
        
         #region Fixed Code
 
@@ -61,6 +60,7 @@ namespace FRF_Form_test
             VLoopModes.Add(mode);
 
         }
+
         void SetParameters(Parameters P)
         {//value is from *.prm file (ServoGuide Parameter file)
             P.FANUCs.HRVGain = 300;
@@ -105,6 +105,20 @@ namespace FRF_Form_test
 
             }
         }
+
+       
+        #endregion 
+
+        #region Enrique Solarte Code
+
+        #region Fix Code
+        
+        public static double TryToDouble(string stringValue)
+        {
+            double auxOut;
+            double.TryParse(stringValue, out auxOut);
+            return auxOut;
+        }
         internal static void DrawLine(FRF[] FRFData, int Channel, Chart Chart_mag, Chart Chart_phs)
         {
             //X AXIS in log scale
@@ -121,12 +135,10 @@ namespace FRF_Form_test
                 Chart_phs.Series[Channel].Points.AddXY(FRFData[i].Freq, FRFData[i].Phs);
             }
         }
-
         internal void DrawResult(FRF[] resultOPT)
         {
             DrawLine(resultOPT, 1, chart_mag, chart_phs);
         }
-
         private void InformationTipEvent(object sender, System.Windows.Forms.DataVisualization.Charting.ToolTipEventArgs e)
         {
             if (e.HitTestResult.ChartElementType == ChartElementType.DataPoint)
@@ -137,45 +149,11 @@ namespace FRF_Form_test
             }
         }
 
-       
         #endregion
-
-        #region MyRegion
-
-        #region Fix Code
-        public class InitialResonatPeak
-        {
-            public double ResonantMagPeak;
-            public double ResonantFreqPeak;       
-        }
-
-        private InitialResonatPeak GetInitialValues()
-        {
-            InitialResonatPeak _InitialValues = new InitialResonatPeak();
-
-
-
-            return _InitialValues;
-        }
-
-        private void ChangedResonantPeakEvent(object sender, EventArgs e)
-        {
-
-        }
-
-        public static double TryToDouble(string stringValue)
-        {
-            double auxOut;
-            double.TryParse(stringValue, out auxOut);
-            return auxOut;
-        }
-
-        #endregion
-
 
         private void GeneticAlgorithmEvent(object sender, EventArgs e)
         {           
-            FormGAOptions GAForm = new FormGAOptions((FRF[])VClose_ref.Clone(), VR, this);
+            FormGAOptions GAForm = new FormGAOptions(this);
             GAForm.Show();
         
             

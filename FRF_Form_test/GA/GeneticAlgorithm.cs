@@ -10,11 +10,34 @@ namespace Optimization
     public class GeneticAlgorithm : IOptimization
     {
         #region Properties
+        public Settings GA_Settings { get; set; }
+        public List<double[][]> PopulationsHistory { get; }
+        public List<Fitness> FitnessHistory { get; }
+        public bool IsPatternAvailable { get; set; }
+        private double[] patternFeature;
+        public double[] PatternFeature
+        {
+            get
+            {
+                return patternFeature;
+            }
+
+            set
+            {
+                patternFeature = new double[GA_Settings.RangeFeatures.Count];
+                patternFeature = value;
+            }
+        }
+
+        #endregion
 
         #region Interface properties
 
         public Result OPTResult { get; }
         public List<Result> OPTHistoryResult { get; }
+
+        
+
         public double[] Solve(ObjectiveFunction ObjFunc)
         {
             if (Validation())
@@ -24,17 +47,17 @@ namespace Optimization
 
                 #region Initial Population and its Fitness
 
-                double[][] initilaPopulation = initializePopulation();
-                PopulationsHistory.Add(initilaPopulation);
+                double[][] initilaPopulation = initializePopulation(); // Get a new population
+                PopulationsHistory.Add(initilaPopulation); // add new population to the History populaion
 
-                Fitness initialFitness = new Fitness(GA_Settings.PopulationSize);
+                Fitness initialFitness = new Fitness(GA_Settings.PopulationSize); //Make a new obj Fitness
                 Parallel.For(0, GA_Settings.PopulationSize, i =>
                 {
                     initialFitness.FitnessPopulation[i] = ObjFunc(initilaPopulation[i]);
-                });
+                }); // Evaluate the new population 
 
-                initialFitness.SetFitenessData();
-                         
+                initialFitness.SetFitenessData();  // Getting the Data of this Fitness evaluation, Max, Mean, index of the max feature...so on.
+
                 initialFitness.BestFeature = (double[])initilaPopulation[initialFitness.MaxFitnessIndex].Clone(); ;
                 FitnessHistory.Add(initialFitness);
 
@@ -55,7 +78,7 @@ namespace Optimization
                     Fitness currentFitness = FitnessHistory.Last();
 
                     double[][] newPopulation = new double[GA_Settings.PopulationSize][];
-                   
+
                     #region GA
                     newPopulation = Selection(currentPopulation, currentFitness.FitnessPopulation);
                     newPopulation[0] = (double[])currentFitness.BestFeature.Clone();
@@ -74,8 +97,8 @@ namespace Optimization
 
                     #region Saving Best fearture  NEW Vs CURRENT
                     if (newFitness.MaxFitness <= currentFitness.MaxFitness)
-                    { 
-                        newPopulation[0] = (double[]) currentFitness.BestFeature.Clone();
+                    {
+                        newPopulation[0] = (double[])currentFitness.BestFeature.Clone();
                         newFitness.BestFeature = (double[])currentFitness.BestFeature.Clone();
                         newFitness.FitnessPopulation[0] = currentFitness.MaxFitness;
                         newFitness.SetFitenessData();
@@ -85,7 +108,7 @@ namespace Optimization
                     PopulationsHistory.Add(newPopulation);
                     FitnessHistory.Add(newFitness);
 
-                    
+
                     OPTHistoryResult.Add(new Result
                     {
                         Parameters = (double[])newFitness.BestFeature.Clone(),
@@ -108,10 +131,7 @@ namespace Optimization
 
         #endregion
 
-        public Settings GA_Settings { get; set; }
-        public List<double[][]> PopulationsHistory { get; }
-        public List<Fitness> FitnessHistory { get; }
-
+        #region Getting Data by outside
         public double[] GetMaxFitnessHistory()
         {
             double[] MaxFitnessHistory = new double[GA_Settings.Generations];
@@ -145,7 +165,6 @@ namespace Optimization
 
             return Feature;
         }
-
         #endregion
 
         #region Consntructors
@@ -205,16 +224,26 @@ namespace Optimization
         private double[][] initializePopulation()
         {
             ///Initialize a new population with the related parameters at GA_Settings
-            ///IT DOES NOT ADD TO POPULATION LIST
             Random rnd = new Random();
             double[][] newPopulation = new double[GA_Settings.PopulationSize][];
             for (int i = 0; i < GA_Settings.PopulationSize; i++)
             {
                 double[] aux = new double[GA_Settings.RangeFeatures.Count];
-                for (int j = 0; j < GA_Settings.RangeFeatures.Count; j++)
+                           
+                    for (int j = 0; j < GA_Settings.RangeFeatures.Count; j++)
+                    {
+                        aux[j] = GA_Settings.RangeFeatures.ElementAt(j).MinValue + rnd.NextDouble() * (GA_Settings.RangeFeatures.ElementAt(j).MaxValue - GA_Settings.RangeFeatures.ElementAt(j).MinValue);
+                    }
+
+                if (IsPatternAvailable)
                 {
-                    aux[j] = GA_Settings.RangeFeatures.ElementAt(j).MinValue + rnd.NextDouble() * (GA_Settings.RangeFeatures.ElementAt(j).MaxValue - GA_Settings.RangeFeatures.ElementAt(j).MinValue);
+                    if (rnd.NextDouble() < 0.01)
+                    {
+                        aux = patternFeature;
+                    }
+
                 }
+
                 newPopulation[i] = aux;
 
             }
@@ -253,8 +282,9 @@ namespace Optimization
             Random rnd = new Random();
             double[][] selectedPopulation = (double[][])currentPopulation.Clone();
 
-            Parallel.For(0, (int)GA_Settings.PopulationSize / 2, i =>
+            Parallel.For(0, (int)GA_Settings.PopulationSize-1, i =>
               {
+                  
                   if (rnd.NextDouble() <= GA_Settings.PCrossover)
                   {
                       for (int j = 0; j < GA_Settings.RangeFeatures.Count; j++)
@@ -264,6 +294,7 @@ namespace Optimization
                           selectedPopulation[i + 1][j] = aux * currentPopulation[i][j] + (1 - aux) * currentPopulation[i + 1][j];
                       }
                   }
+                  i = i + 2;
               });
             return selectedPopulation;
         }
@@ -332,7 +363,6 @@ namespace Optimization
             }
 
         }
-
 
     }
 
