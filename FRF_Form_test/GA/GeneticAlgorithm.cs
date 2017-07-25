@@ -29,15 +29,13 @@ namespace Optimization
             }
         }
 
+
         #endregion
 
         #region Interface properties
 
         public Result OPTResult { get; }
         public List<Result> OPTHistoryResult { get; }
-
-        
-
         public double[] Solve(ObjectiveFunction ObjFunc)
         {
             if (Validation())
@@ -326,6 +324,27 @@ namespace Optimization
 
         #endregion
 
+        public class Fitness
+        {
+            public double MaxFitness { get; set; }
+            public double MeanFitness { get; set; }
+            public int MaxFitnessIndex { get; set; }
+            public double[] BestFeature { get; set; }
+            public double[] FitnessPopulation { get; set; }
+
+            public Fitness(int populationSize)
+            {
+                FitnessPopulation = new double[populationSize];
+            }
+
+            internal void SetFitenessData()
+            {
+                MaxFitness = FitnessPopulation.Max();
+                MeanFitness = FitnessPopulation.Sum() / FitnessPopulation.Count();
+                MaxFitnessIndex = FitnessPopulation.ToList().IndexOf(MaxFitness);
+            }
+
+        }
         public class Settings
         {
             public int PopulationSize { get; set; }
@@ -336,35 +355,17 @@ namespace Optimization
             public int Generations { get; set; }
         }
 
-        public struct Range
-        {
-            public double MaxValue { get; set; }
-            public double MinValue { get; set; }
-        }
-
-        public class Fitness
-        {
-            public double MaxFitness { get; set; }
-            public double MeanFitness { get; set; }
-            public int MaxFitnessIndex { get; set; }
-            public double[] BestFeature { get; set; }
-            public double[] FitnessPopulation { get; set; }
-            
-            public Fitness(int populationSize)
-            {
-                FitnessPopulation = new double[populationSize];
-            }
-            
-            internal void SetFitenessData()
-            {
-                MaxFitness = FitnessPopulation.Max();
-                MeanFitness = FitnessPopulation.Sum() / FitnessPopulation.Count();
-                MaxFitnessIndex = FitnessPopulation.ToList().IndexOf(MaxFitness);
-            }
-
-        }
-
     }
+
+   
+
+    public struct Range
+    {
+        public double MaxValue { get; set; }
+        public double MinValue { get; set; }
+    }
+
+
 
 }
 

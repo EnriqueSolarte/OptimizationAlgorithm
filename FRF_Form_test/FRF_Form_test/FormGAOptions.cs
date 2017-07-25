@@ -42,23 +42,23 @@ namespace FRF_Form_test
             NewVLoopModes = ReachedVLoopModes;
 
             #region Setting up Ranges
-            GeneticAlgorithm.Range Mass_range = new GeneticAlgorithm.Range { MinValue = FormMain.TryToDouble(textBoxMassMin.Text), MaxValue = FormMain.TryToDouble(textBoxMassMax.Text) };
-            GeneticAlgorithm.Range Zeta_range = new GeneticAlgorithm.Range { MinValue = FormMain.TryToDouble(textBoxZetaMin.Text), MaxValue = FormMain.TryToDouble(textBoxZetaMax.Text) };
+            Range Mass_range = new Range { MinValue = FormMain.TryToDouble(textBoxMassMin.Text), MaxValue = FormMain.TryToDouble(textBoxMassMax.Text) };
+            Range Zeta_range = new Range { MinValue = FormMain.TryToDouble(textBoxZetaMin.Text), MaxValue = FormMain.TryToDouble(textBoxZetaMax.Text) };
 
             #region Range frequencies: Peak Freq + range & Peak Freq - range
-            GeneticAlgorithm.Range Freq1_rage = new GeneticAlgorithm.Range
+            Range Freq1_rage = new Range
             {
                 MinValue = FormMain.TryToDouble(textBoxFreq1.Text) - FormMain.TryToDouble(textBoxFreqRange1.Text),
                 MaxValue = FormMain.TryToDouble(textBoxFreq1.Text) + FormMain.TryToDouble(textBoxFreqRange1.Text)
             };
 
-            GeneticAlgorithm.Range Freq2_rage = new GeneticAlgorithm.Range
+            Range Freq2_rage = new Range
             {
                 MinValue = FormMain.TryToDouble(textBoxFreq2.Text) - FormMain.TryToDouble(textBoxFreqRange2.Text),
                 MaxValue = FormMain.TryToDouble(textBoxFreq2.Text) + FormMain.TryToDouble(textBoxFreqRange2.Text)
             };
 
-            GeneticAlgorithm.Range Freq3_rage = new GeneticAlgorithm.Range
+            Range Freq3_rage = new Range
             {
                 MinValue = FormMain.TryToDouble(textBoxFreq3.Text) - FormMain.TryToDouble(textBoxFreqRange3.Text),
                 MaxValue = FormMain.TryToDouble(textBoxFreq3.Text) + FormMain.TryToDouble(textBoxFreqRange3.Text)
@@ -115,13 +115,13 @@ namespace FRF_Form_test
             public FRF[] ResultOPT { get; set; }
             private VelocityResponse VR;
 
-            private List<GeneticAlgorithm.Range> Features;// internal Varaiable to GA
+            private List<Range> Features;// internal Varaiable to GA
 
             //Constructure: Create det OBJ and define "Features" to GA
-            public GAOptimization(GeneticAlgorithm.Range mass_range, GeneticAlgorithm.Range zeta_range, GeneticAlgorithm.Range freq1_rage, GeneticAlgorithm.Range freq2_rage, GeneticAlgorithm.Range freq3_rage) 
+            public GAOptimization(Range mass_range, Range zeta_range, Range freq1_rage, Range freq2_rage, Range freq3_rage) 
             {
               
-                Features = new List<GeneticAlgorithm.Range>();
+                Features = new List<Range>();
                 Features.Add(mass_range);
                 Features.Add(zeta_range);
                 Features.Add(freq1_rage);
